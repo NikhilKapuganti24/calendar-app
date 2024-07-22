@@ -19,7 +19,10 @@ const oauth2Client = new google.auth.OAuth2(
   
  
   
-  const SCOPES = ['https://www.googleapis.com/auth/calendar'];
+  const SCOPES = [
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/drive.file',
+  ];
 export default [
 
     {

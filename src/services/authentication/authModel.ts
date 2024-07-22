@@ -9,13 +9,13 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar'];
-
+const SCOPES = [ 'https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/drive' ,'https://www.googleapis.com/auth/drive.file' ]
 export const checkAuthinDB = () => {
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
   });
+  console.log(`Visit this URL to grant access: ${authUrl}`);
   return authUrl;
 };
 

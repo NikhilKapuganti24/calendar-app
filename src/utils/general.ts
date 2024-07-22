@@ -8,7 +8,7 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.REDIRECT_URI
 );
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar'];
+const SCOPES = [ 'https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/drive' ,'https://www.googleapis.com/auth/drive.file' ]
 
 
 export const checkUserSession = async (req: any, res: any, next: any) => {
@@ -88,10 +88,194 @@ else{
     res.status(500).json({ message: "Error checking user session" });
   }
 };
-export const constructEventObject = (data: {
-  description: any; summary: any; startDate: { toISOString: () => any; }; endDate: { toISOString: () => any; }; 
-}, emailAddresses: any[], recurrenceRule: string, redirectUrl: any) => {
-  const event:any = {
+// export const constructEventObject = (
+//   data: {
+//     description: any;
+//     summary: any;
+//     startDate: { toISOString: () => any };
+//     endDate: { toISOString: () => any };
+//   },
+//   emailAddresses: any[],
+//   recurrenceRule: string,
+//   redirectUrl: any,
+//   file?: Express.Multer.File
+// ) => {
+//   const event: any = {
+//     summary: data.summary,
+//     //description: `<a href="${redirectUrl}">${data.description}</a>`,
+//     colorId: '6',
+//     start: {
+//       dateTime: data.startDate.toISOString(),
+//       timeZone: 'Asia/Kolkata'
+//     },
+//     end: {
+//       dateTime: data.endDate.toISOString(),
+//       timeZone: 'Asia/Kolkata'
+//     },
+//     attendees: emailAddresses.map((email: any) => ({ email }))
+//   };
+
+//   if (file) {
+//     console.log("sdbhjcnmgklsdf",file)
+//     // Attach file as an attachment with base64-encoded content
+//     const attachmentData = {
+//       fileUrl: `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
+//       title: file.originalname,
+//       mimeType: file.mimetype,
+//       iconLink: 'path_to_icon', // Optional: specify an icon link if needed
+//     };
+//     console.log("sdbhjcnmgklsdf",attachmentData)
+//     event.attachments = [attachmentData];
+//   }
+
+//   if (recurrenceRule && recurrenceRule !== 'None') {
+//     event.recurrence = [recurrenceRule];
+//   }
+
+//   return event;
+// };
+
+// export const constructEventObject = (
+//   data: {
+//     description: any;
+//     summary: any;
+//     startDate: { toISOString: () => any };
+//     endDate: { toISOString: () => any };
+//   },
+//   emailAddresses: any[],
+//   recurrenceRule: string,
+//   redirectUrl: any,
+//   fileLink?: string // Updated to receive a file link instead of the file itself
+// ) => {
+//   const event: any = {
+//     summary: data.summary,
+//     description: `<a href="${redirectUrl}">${data.description}</a>`, // Ensure this is properly formatted
+//     colorId: '6',
+//     start: {
+//       dateTime: data.startDate.toISOString(),
+//       timeZone: 'Asia/Kolkata'
+//     },
+//     end: {
+//       dateTime: data.endDate.toISOString(),
+//       timeZone: 'Asia/Kolkata'
+//     },
+//     attendees: emailAddresses.map((email: any) => ({ email }))
+//   };
+
+//   if (fileLink) {
+//     event.attachments= [
+//       {
+//           "fileUrl":`<a href="${fileLink}">Attached File</a>`
+          
+//       }
+//   ]
+//   }
+//     //event.attachments += `<br/><a href="${fileLink}">Attached File</a>`;
+  
+
+//   if (recurrenceRule && recurrenceRule !== 'None') {
+//     event.recurrence = [recurrenceRule];
+//   }
+
+//   return event;
+// };
+// export const constructEventObject = (
+//   data: {
+//     description: any;
+//     summary: any;
+//     startDate: { toISOString: () => any };
+//     endDate: { toISOString: () => any };
+//   },
+//   emailAddresses: any[],
+//   recurrenceRule: string,
+//   redirectUrl: any,
+//   fileLink?: string // Optional file link
+// ) => {
+//   const event: any = {
+//     summary: data.summary,
+//     description: `<a href="${redirectUrl}">${data.description}</a>`,
+//     colorId: '6',
+//     start: {
+//       dateTime: data.startDate.toISOString(),
+//       timeZone: 'Asia/Kolkata'
+//     },
+//     end: {
+//       dateTime: data.endDate.toISOString(),
+//       timeZone: 'Asia/Kolkata'
+//     },
+//     attendees: emailAddresses.map((email: any) => ({ email }))
+//   };
+
+//   if (fileLink) {
+//     event.attachments = [
+//       {
+//         fileData: fileContent,
+//         mimeType: 'application/pdf', // Adjust based on your file type
+//       }
+//     ];
+//   }
+
+//   if (recurrenceRule && recurrenceRule !== 'None') {
+//     event.recurrence = [recurrenceRule];
+//   }
+
+//   return event;
+// };
+
+// export const constructEventObject = (
+//   data: {
+//     description: any;
+//     summary: any;
+//     startDate: { toISOString: () => any };
+//     endDate: { toISOString: () => any };
+//   },
+//   emailAddresses: any[],
+//   recurrenceRule: string,
+//   redirectUrl: any,
+//   fileLink?: string // Optional file link
+// ) => {
+//   const event: any = {
+//     summary: data.summary,
+//     description: `<a href="${redirectUrl}">${data.description}</a>`,
+//     colorId: '6',
+//     start: {
+//       dateTime: data.startDate.toISOString(),
+//       timeZone: 'Asia/Kolkata'
+//     },
+//     end: {
+//       dateTime: data.endDate.toISOString(),
+//       timeZone: 'Asia/Kolkata'
+//     },
+//     attendees: emailAddresses.map((email: any) => ({ email }))
+//   };
+
+//   if (fileLink) {
+//     event.attachments = [
+//       {
+//         fileUrl: fileLink, // Use fileUrl directly for attachments from Drive
+//       }
+//     ];
+//   }
+
+//   if (recurrenceRule && recurrenceRule !== 'None') {
+//     event.recurrence = [recurrenceRule];
+//   }
+
+//   return event;
+// };
+export const constructEventObject = (
+  data: {
+    description: any;
+    summary: any;
+    startDate: { toISOString: () => any };
+    endDate: { toISOString: () => any };
+  },
+  emailAddresses: any[],
+  recurrenceRule: string,
+  redirectUrl: any,
+  fileLink?: string // Optional file link
+) => {
+  const event: any = {
     summary: data.summary,
     description: `<a href="${redirectUrl}">${data.description}</a>`,
     colorId: '6',
@@ -105,6 +289,16 @@ export const constructEventObject = (data: {
     },
     attendees: emailAddresses.map((email: any) => ({ email }))
   };
+
+  if (fileLink) {
+    event.attachments = [
+      {
+        fileUrl: fileLink,
+        title: "sjjj",
+         // Use fileUrl directly for attachments from Drive
+      }
+    ];
+  }
 
   if (recurrenceRule && recurrenceRule !== 'None') {
     event.recurrence = [recurrenceRule];

@@ -2,6 +2,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { createEvent, deleteEvent, getAllEvents, getEvent, updateEvent } from "./eventController";
 import { checkUserSession } from '../../utils/general';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+
 
 interface AuthenticatedRequest extends Request {
     user?: {
@@ -10,6 +14,15 @@ interface AuthenticatedRequest extends Request {
         accessToken: string;
     };
 }
+// Ensure the temporary directory exists
+const tempDir = path.join(__dirname, 'temp');
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir);
+}
+
+// Configure multer to save files to the temporary directory
+const upload = multer({ dest: tempDir });
+  
 
 
 export default [
@@ -18,9 +31,12 @@ export default [
         method: 'post',
         handler: [
             checkUserSession,
+            upload.single('file'),
+            
+
             async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
                 try {
-                    const result = await createEvent(req.body, req.user?.accessToken);
+                    const result = await createEvent(req.body, req.user?.accessToken,req.file);
                     res.status(200).json(result);
                 } catch (error) {
                     console.error(error);
