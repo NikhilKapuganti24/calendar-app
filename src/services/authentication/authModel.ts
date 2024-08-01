@@ -14,6 +14,7 @@ export const checkAuthinDB = () => {
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
+    include_granted_scopes:true,
   });
   console.log(`Visit this URL to grant access: ${authUrl}`);
   return authUrl;

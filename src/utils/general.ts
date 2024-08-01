@@ -263,6 +263,49 @@ else{
 
 //   return event;
 // };
+// export const constructEventObject = (
+//   data: {
+//     description: any;
+//     summary: any;
+//     startDate: { toISOString: () => any };
+//     endDate: { toISOString: () => any };
+//   },
+//   emailAddresses: any[],
+//   recurrenceRule: string,
+//   redirectUrl: any,
+//   fileLink?: string // Optional file link
+// ) => {
+//   const event: any = {
+//     summary: data.summary,
+//     description: `<a href="${redirectUrl}">${data.description}</a>`,
+//     colorId: '6',
+//     start: {
+//       dateTime: data.startDate.toISOString(),
+//       timeZone: 'Asia/Kolkata'
+//     },
+//     end: {
+//       dateTime: data.endDate.toISOString(),
+//       timeZone: 'Asia/Kolkata'
+//     },
+//     attendees: emailAddresses.map((email: any) => ({ email }))
+//   };
+
+//   if (fileLink) {
+//     event.attachments = [
+//       {
+//         fileUrl: fileLink,
+//         title: "sjjj",
+//          // Use fileUrl directly for attachments from Drive
+//       }
+//     ];
+//   }
+
+//   if (recurrenceRule && recurrenceRule !== 'None') {
+//     event.recurrence = [recurrenceRule];
+//   }
+
+//   return event;
+// };
 export const constructEventObject = (
   data: {
     description: any;
@@ -273,7 +316,7 @@ export const constructEventObject = (
   emailAddresses: any[],
   recurrenceRule: string,
   redirectUrl: any,
-  fileLink?: string // Optional file link
+  fileLinks?: { fileUrl: string, title: string }[] // Array of file links
 ) => {
   const event: any = {
     summary: data.summary,
@@ -289,15 +332,12 @@ export const constructEventObject = (
     },
     attendees: emailAddresses.map((email: any) => ({ email }))
   };
-
-  if (fileLink) {
-    event.attachments = [
-      {
-        fileUrl: fileLink,
-        title: "sjjj",
-         // Use fileUrl directly for attachments from Drive
-      }
-    ];
+ 
+  if (fileLinks && fileLinks.length > 0) {
+    event.attachments = fileLinks.map(fileLink => ({
+      fileUrl: fileLink.fileUrl,
+      title: fileLink.title,
+    }));
   }
 
   if (recurrenceRule && recurrenceRule !== 'None') {

@@ -1,8 +1,8 @@
 import { createEventInDB, deleteEventFromDB, getAllEventsFromDB,  getEventFromDB,  updateEventInDB } from "./eventModel"
 
 
-export const createEvent = async  (req:any,accessToke:any,file:any)=>{
-    return await createEventInDB(req,accessToke,file)
+export const createEvent = async  (req:any,accessToke:any)=>{
+    return await createEventInDB(req,accessToke)
 }
 export const getAllEvents = async  ()=>{
     return await getAllEventsFromDB()

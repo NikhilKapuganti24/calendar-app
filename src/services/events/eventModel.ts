@@ -16,78 +16,32 @@ const oauth2Client = new google.auth.OAuth2(
 // Setup multer for file upload
 const upload = multer({ dest: 'temp/' });
 
-/**
- * Sets the OAuth2 client credentials.
- * @param accessToken - The access token to set.
- */
-const setOauth2ClientCredentials = (accessToken: string) => {
-  oauth2Client.setCredentials({ access_token: accessToken });
+
+const setOauth2ClientCredentials = (accessToken: string, refreshToken?: string) => {
+  const credentials:any = { access_token: accessToken };
+  if (refreshToken) {
+    credentials.refresh_token = refreshToken;
+  }
+  oauth2Client.setCredentials(credentials);
 };
 
-/**
- * Returns an authenticated Google Drive client.
- * @param accessToken - The access token to authenticate the client.
- * @returns The Google Drive client.
- */
 const getDriveClient = (accessToken: string) => {
   setOauth2ClientCredentials(accessToken);
   return google.drive({ version: 'v3', auth: oauth2Client });
 };
 
-/**
- * Returns an authenticated Google Calendar client.
- * @param accessToken - The access token to authenticate the client.
- * @returns The Google Calendar client.
- */
+
 const getCalendarClient = (accessToken: string) => {
   setOauth2ClientCredentials(accessToken);
   return google.calendar({ version: 'v3', auth: oauth2Client });
 };
 
-/**
- * Uploads a file to Google Drive.
- * @param file - The file to upload.
- * @param driveClient - The Google Drive client.
- * @returns The response data from Drive API.
- */
-// const uploadFileToDrive = async (file: Express.Multer.File, driveClient: any) => {
-//   const filePath = path.join(file.destination, file.filename); // Correct file path
-
-//   const fileMetadata = {
-//     name: file.originalname,
-//     parents: [process.env.FOLDER_ID] // Use the environment variable for the folder ID
-//   };
-
-//   const media = {
-//     mimeType: file.mimetype,
-//     body: fs.createReadStream(filePath)
-//   };
-
-//   try {
-//     const res = await driveClient.files.create({
-//       resource: fileMetadata,
-//       media: media,
-//       fields: 'id, webViewLink'
-//     });
-
-//     // Clean up temporary file
-//     fs.unlinkSync(filePath);
-
-//     return res.data;
-//   } catch (error) {
-//     // Clean up temporary file on error
-//     if (fs.existsSync(filePath)) {
-//       fs.unlinkSync(filePath);
-//     }
-//     throw error;
-//   }
-// };
 const uploadFileToDrive = async (file: Express.Multer.File, driveClient: any) => {
-  const filePath = path.join(file.destination, file.filename); // Correct file path
+  const filePath = path.join(file.destination, file.filename); 
 
   const fileMetadata = {
     name: file.originalname,
-    parents: [process.env.FOLDER_ID] // Use the environment variable for the folder ID
+    parents: [process.env.FOLDER_ID]
   };
 
   const media = {
@@ -120,11 +74,6 @@ const uploadFileToDrive = async (file: Express.Multer.File, driveClient: any) =>
   }
 };
 
-/**
- * Returns the recurrence rule for an event.
- * @param recurrence - The recurrence type.
- * @returns The recurrence rule.
- */
 const getRecurrenceRule = (recurrence: string) => {
   switch (recurrence) {
     case 'weekly':
@@ -140,13 +89,6 @@ const getRecurrenceRule = (recurrence: string) => {
       return 'None';
   }
 };
-
-/**
- * Inserts an event into the database.
- * @param body - The event details.
- * @param event - The event data from Google Calendar.
- * @param file - The file metadata.
- */
 const insertEventToDb = async (body: any, event: any, file: any) => {
   await connectionObj.db('calendar').collection('events').insertOne({
     eventId: event.id,
@@ -163,26 +105,12 @@ const insertEventToDb = async (body: any, event: any, file: any) => {
   });
 };
 
-/**
- * Deletes an event from the database.
- * @param eventId - The event ID.
- * @throws Error if deletion fails.
- */
 const deleteEventFromDb = async (eventId: string) => {
   const result = await connectionObj.db('calendar').collection('events').deleteOne({ _id: new ObjectId(eventId) });
   if (result.deletedCount === 0) {
     throw new Error('Failed to delete event from database. No document found.');
   }
 };
-
-/**
- * Creates an event in Google Calendar and database.
- * @param body - The event details.
- * @param accessToken - The OAuth2 access token.
- * @param file - The file to be attached to the event.
- * @returns Success or error message.
- */
-
 export const createEventInDB = async (
   body: {
     redirectUrl: any;
@@ -193,14 +121,13 @@ export const createEventInDB = async (
     emails: any[];
     recurrence: any;
     driveFileId?: string;
-    fileLink?: string;
+    files?: Express.Multer.File[]; // Array of files
   },
-  accessToken: string,
-  file?: Express.Multer.File
+  accessToken: string
 ) => {
   try {
     console.log("Request body:", body);
-    console.log("File received:", file);
+    console.log("Files received:", body.files);
 
     const eventData = {
       summary: body.summary,
@@ -215,23 +142,32 @@ export const createEventInDB = async (
     const calendar = getCalendarClient(accessToken);
     const drive = getDriveClient(accessToken);
 
-    let fileLink:any;
+    let fileLinks = [];
 
-    if (file) {
-      // Handle desktop file upload
-      const uploadedFile = await uploadFileToDrive(file, drive);
-      fileLink = uploadedFile.webViewLink;
-    } 
-       // Check if a file is selected from Google Drive
-       if (body.driveFileId) {
-        const fileResponse = await drive.files.get({
-          fileId: body.driveFileId,
-          fields: 'webViewLink'
+    if (body.files && body.files.length > 0) {
+      for (const file of body.files) {
+        console.log("sadasknm,.wdsaghzxbjnkm,qwhbsz,ewhjbm")
+        const uploadedFile = await uploadFileToDrive(file, drive);
+        fileLinks.push({
+          fileUrl: uploadedFile.webViewLink,
+          title: file.originalname,
         });
-        fileLink = fileResponse.data.webViewLink;
       }
+    }
 
-    const event = constructEventObject(eventData, emailAddresses, recurrenceRule, body.redirectUrl, fileLink);
+    // Check if a file is selected from Google Drive
+    if (body.driveFileId) {
+      const fileResponse = await drive.files.get({
+        fileId: body.driveFileId,
+        fields: 'webViewLink'
+      });
+      fileLinks.push({
+        fileUrl: fileResponse.data.webViewLink,
+        title: 'Google Drive File',
+      });
+    }
+
+    const event = constructEventObject(eventData, emailAddresses, recurrenceRule, body.redirectUrl, fileLinks);
 
     console.log("Event to be inserted:", event);
 
@@ -241,7 +177,7 @@ export const createEventInDB = async (
       supportsAttachments: true 
     });
 
-    await insertEventToDb(body, result.data, file);
+    await insertEventToDb(body, result.data, body.files);
 
     return 'Event created successfully';
   } catch (error: any) {
@@ -249,6 +185,7 @@ export const createEventInDB = async (
     return 'Error creating event';
   }
 };
+
 // export const createEventInDB = async (
 //   body: {
 //     redirectUrl: any;
@@ -258,10 +195,11 @@ export const createEventInDB = async (
 //     endDate: string | number | Date;
 //     emails: any[];
 //     recurrence: any;
-//     attachment?: Express.Multer.File;
+//     driveFileId?: string;
+//     fileLink?: string;
 //   },
 //   accessToken: string,
-//   file: Express.Multer.File
+//   file?: Express.Multer.File[]
 // ) => {
 //   try {
 //     console.log("Request body:", body);
@@ -280,11 +218,31 @@ export const createEventInDB = async (
 //     const calendar = getCalendarClient(accessToken);
 //     const drive = getDriveClient(accessToken);
 
-//     let fileLink: string | undefined;
-//     if (file) {
-//       const uploadedFile = await uploadFileToDrive(file, drive);
-//       fileLink = uploadedFile.webViewLink;
-//     }
+//     let fileLink:any;
+//     let fileLinks = [];
+
+//         if (file ) {
+//           for (const sfile of file) {
+//             const uploadedFile = await uploadFileToDrive(sfile, drive);
+//             fileLinks.push({
+//               fileUrl: uploadedFile.webViewLink,
+//               title: sfile.originalname,
+//             });
+//           }
+//         }
+    
+//         // Check if a file is selected from Google Drive
+//         if (body.driveFileId) {
+//           const fileResponse = await drive.files.get({
+//             fileId: body.driveFileId,
+//             fields: 'webViewLink'
+//           });
+//           fileLinks.push({
+//             fileUrl: fileResponse.data.webViewLink,
+//             title: 'Google Drive File',
+//           });
+//         }
+    
 
 //     const event = constructEventObject(eventData, emailAddresses, recurrenceRule, body.redirectUrl, fileLink);
 
@@ -304,62 +262,6 @@ export const createEventInDB = async (
 //     return 'Error creating event';
 //   }
 // };
-// export const createEventInDB = async (
-//   body: {
-//     redirectUrl: any;
-//     description: any;
-//     summary: any;
-//     startDate: string | number | Date;
-//     endDate: string | number | Date;
-//     emails: any[];
-//     recurrence: any;
-//     attachment?: Express.Multer.File; // Optional file link
-//   },
-//   accessToken: string,file:any
-// ) => {
-//   try {
-//     console.log("Request body:", body);
-//     console.log("File received:", body.attachment); // Log for debugging
-
-//     const eventData = {
-//       summary: body.summary,
-//       description: body.description,
-//       startDate: new Date(body.startDate),
-//       endDate: new Date(body.endDate),
-//     };
-
-//     const emailAddresses = body.emails.map((emailObj: { address: any }) => emailObj.address);
-//     const recurrenceRule = getRecurrenceRule(body.recurrence);
-
-//     const calendar = getCalendarClient(accessToken);
-//     const drive = getDriveClient(accessToken);
-
-//     let fileLink: string | undefined;
-//     if (file) {
-//       const uploadedFile = await uploadFileToDrive(file, drive);
-//       fileLink = uploadedFile.webViewLink;
-//     }
-
-//     const event = constructEventObject(eventData, emailAddresses, recurrenceRule, body.redirectUrl, fileLink);
-
-//     console.log("Event to be inserted:", event);
-
-//     const result = await calendar.events.insert({
-//       calendarId: 'primary',
-//       requestBody: event,
-//       supportsAttachments: true // Set supportsAttachments for attachments
-//     });
-//   }
-//   catch (error: any) {
-//         console.error('Error creating event:', error.response?.data || error.message || error);
-//         return 'Error creating event';
-//       }
-// }
-
-/**
- * Fetches all events from the database.
- * @returns The list of events or error.
- */
 export const getAllEventsFromDB = async () => {
   try {
     const events = await connectionObj.db('calendar').collection('events').find({}).toArray();
@@ -369,12 +271,6 @@ export const getAllEventsFromDB = async () => {
     return error;
   }
 };
-
-/**
- * Fetches a single event from the database.
- * @param id - The event ID.
- * @returns The event or error.
- */
 export const getEventFromDB = async (id: any) => {
   try {
     const event = await connectionObj.db('calendar').collection('events').findOne({ _id: new ObjectId(id) });
@@ -385,12 +281,6 @@ export const getEventFromDB = async (id: any) => {
   }
 };
 
-/**
- * Deletes an event from Google Calendar and the database.
- * @param Id - The event ID.
- * @param accessToken - The OAuth2 access token.
- * @returns Success or error message.
- */
 export const deleteEventFromDB = async (Id: string, accessToken: string) => {
   try {
     console.log('Deleting event with ID:', Id);
@@ -417,13 +307,6 @@ export const deleteEventFromDB = async (Id: string, accessToken: string) => {
   }
 };
 
-/**
- * Updates an event in Google Calendar and the database.
- * @param Id - The event ID.
- * @param body - The updated event details.
- * @param accessToken - The OAuth2 access token.
- * @returns Success or error message.
- */
 export const updateEventInDB = async (Id: any, body: {
   redirectUrl: any;
   description: any;
