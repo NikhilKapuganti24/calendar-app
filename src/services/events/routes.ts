@@ -34,9 +34,14 @@ export default [
             uploadMultiple,
             async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
                 try {
-                    const { name, summary, startDate, endDate, description, redirectUrl, recurrence, emails, driveFileId } = req.body;
+                    const { name, summary, startDate, endDate, description, redirectUrl, recurrence, emails, } = req.body;
+                    //const parsedEmails = JSON.parse(emails);
                     const files = req.files;
-                
+                    const driveFileIds = Array.isArray(req.body.driveFileId) ? req.body.driveFileId : [req.body.driveFileId].filter(Boolean);
+
+    console.log("Received data:", req.body);
+    console.log("Received files:", files);
+    console.log("Received Drive file IDs:", driveFileIds);
                     const body = {
                       redirectUrl,
                       description,
@@ -45,7 +50,7 @@ export default [
                       endDate,
                       emails: emails, // Assuming emails are sent as a JSON string
                       recurrence,
-                      driveFileId,
+                      driveFileIds,
                       files, // Pass the array of files
                     };
                 

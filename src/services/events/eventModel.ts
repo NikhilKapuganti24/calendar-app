@@ -142,7 +142,7 @@ export const createEventInDB = async (
     const calendar = getCalendarClient(accessToken);
     const drive = getDriveClient(accessToken);
 
-    let fileLinks = [];
+    let fileLinks:any = [];
 
     if (body.files && body.files.length > 0) {
       for (const file of body.files) {
@@ -156,15 +156,30 @@ export const createEventInDB = async (
     }
 
     // Check if a file is selected from Google Drive
+    // if (body.driveFileId) {
+    //   const fileResponse = await drive.files.get({
+    //     fileId: body.driveFileId,
+    //     fields: 'webViewLink'
+    //   });
+    //   fileLinks.push({
+    //     fileUrl: fileResponse.data.webViewLink,
+    //     title: 'Google Drive File',
+    //   });
+    // }
     if (body.driveFileId) {
-      const fileResponse = await drive.files.get({
-        fileId: body.driveFileId,
-        fields: 'webViewLink'
-      });
-      fileLinks.push({
-        fileUrl: fileResponse.data.webViewLink,
-        title: 'Google Drive File',
-      });
+      // If it's a string, convert it to an array
+      const driveFileIds = Array.isArray(body.driveFileId) ? body.driveFileId : [body.driveFileId];
+      
+      for (const fileId of driveFileIds) {
+        const fileResponse = await drive.files.get({
+          fileId: fileId,
+          fields: 'webViewLink,name'
+        });
+        fileLinks.push({
+          fileUrl: fileResponse.data.webViewLink,
+          title: fileResponse.data.name,
+        });
+      }
     }
 
     const event = constructEventObject(eventData, emailAddresses, recurrenceRule, body.redirectUrl, fileLinks);
