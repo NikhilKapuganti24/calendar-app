@@ -85,6 +85,8 @@ const getRecurrenceRule = (recurrence: string) => {
     case 'yearly':
       return 'RRULE:FREQ=YEARLY';
     case 'not-repeat':
+      case 'daily':
+      return 'RRULE:FREQ=DAILY';
     default:
       return 'None';
   }
@@ -100,7 +102,7 @@ const insertEventToDb = async (body: any, event: any, file: any) => {
     recurrence: body.recurrence,
     emails: body.emails,
     redirectUrl: body.redirectUrl,
-    imageUrl: file ? `/uploads/${file.filename}` : null,
+    file: file,
     attachment: body.attachment,
   });
 };
@@ -120,7 +122,7 @@ export const createEventInDB = async (
     endDate: string | number | Date;
     emails: any[];
     recurrence: any;
-    driveFileId?: string;
+    driveFileIds?: string;
     files?: Express.Multer.File[]; // Array of files
   },
   accessToken: string
@@ -150,7 +152,7 @@ export const createEventInDB = async (
         const uploadedFile = await uploadFileToDrive(file, drive);
         fileLinks.push({
           fileUrl: uploadedFile.webViewLink,
-          title: file.originalname,
+        title: file.originalname,
         });
       }
     }
@@ -166,9 +168,9 @@ export const createEventInDB = async (
     //     title: 'Google Drive File',
     //   });
     // }
-    if (body.driveFileId) {
+    if (body.driveFileIds) {
       // If it's a string, convert it to an array
-      const driveFileIds = Array.isArray(body.driveFileId) ? body.driveFileId : [body.driveFileId];
+      const driveFileIds = Array.isArray(body.driveFileIds) ? body.driveFileIds : [body.driveFileIds];
       
       for (const fileId of driveFileIds) {
         const fileResponse = await drive.files.get({
@@ -192,7 +194,7 @@ export const createEventInDB = async (
       supportsAttachments: true 
     });
 
-    await insertEventToDb(body, result.data, body.files);
+    await insertEventToDb(body, result.data, fileLinks);
 
     return 'Event created successfully';
   } catch (error: any) {
@@ -200,83 +202,6 @@ export const createEventInDB = async (
     return 'Error creating event';
   }
 };
-
-// export const createEventInDB = async (
-//   body: {
-//     redirectUrl: any;
-//     description: any;
-//     summary: any;
-//     startDate: string | number | Date;
-//     endDate: string | number | Date;
-//     emails: any[];
-//     recurrence: any;
-//     driveFileId?: string;
-//     fileLink?: string;
-//   },
-//   accessToken: string,
-//   file?: Express.Multer.File[]
-// ) => {
-//   try {
-//     console.log("Request body:", body);
-//     console.log("File received:", file);
-
-//     const eventData = {
-//       summary: body.summary,
-//       description: body.description,
-//       startDate: new Date(body.startDate),
-//       endDate: new Date(body.endDate),
-//     };
-
-//     const emailAddresses = body.emails.map((emailObj: { address: any }) => emailObj.address);
-//     const recurrenceRule = getRecurrenceRule(body.recurrence);
-
-//     const calendar = getCalendarClient(accessToken);
-//     const drive = getDriveClient(accessToken);
-
-//     let fileLink:any;
-//     let fileLinks = [];
-
-//         if (file ) {
-//           for (const sfile of file) {
-//             const uploadedFile = await uploadFileToDrive(sfile, drive);
-//             fileLinks.push({
-//               fileUrl: uploadedFile.webViewLink,
-//               title: sfile.originalname,
-//             });
-//           }
-//         }
-    
-//         // Check if a file is selected from Google Drive
-//         if (body.driveFileId) {
-//           const fileResponse = await drive.files.get({
-//             fileId: body.driveFileId,
-//             fields: 'webViewLink'
-//           });
-//           fileLinks.push({
-//             fileUrl: fileResponse.data.webViewLink,
-//             title: 'Google Drive File',
-//           });
-//         }
-    
-
-//     const event = constructEventObject(eventData, emailAddresses, recurrenceRule, body.redirectUrl, fileLink);
-
-//     console.log("Event to be inserted:", event);
-
-//     const result = await calendar.events.insert({
-//       calendarId: 'primary',
-//       requestBody: event,
-//       supportsAttachments: true 
-//     });
-
-//     await insertEventToDb(body, result.data, file);
-
-//     return 'Event created successfully';
-//   } catch (error: any) {
-//     console.error('Error creating event:', error.response?.data || error.message || error);
-//     return 'Error creating event';
-//   }
-// };
 export const getAllEventsFromDB = async () => {
   try {
     const events = await connectionObj.db('calendar').collection('events').find({}).toArray();
@@ -322,50 +247,119 @@ export const deleteEventFromDB = async (Id: string, accessToken: string) => {
   }
 };
 
-export const updateEventInDB = async (Id: any, body: {
-  redirectUrl: any;
-  description: any;
-  summary: any;
-  startDate: string | number | Date;
-  endDate: string | number | Date;
-  emails: any[];
-  recurrence: any;
-}, accessToken: string) => {
+
+export const updateEventInDB = async (
+  Id: string,
+  body: Partial<{
+    redirectUrl: string;
+    description: string;
+    summary: string;
+    startDate: string | number | Date;
+    endDate: string | number | Date;
+    emails: any[];
+    recurrence: string;
+    driveFileIds?: string[];
+    files?: Express.Multer.File[];
+  }>,
+  accessToken: string
+) => {
   try {
     const event = await getEventFromDB(Id);
     const eventId = event.eventId;
 
-    const eventData = {
-      summary: body.summary,
-      description: body.description,
-      startDate: new Date(body.startDate),
-      endDate: new Date(body.endDate),
-    };
-
-    const emailAddresses = body.emails.map((emailObj: { address: any }) => emailObj.address);
-    const recurrenceRule = getRecurrenceRule(body.recurrence);
     const calendar = getCalendarClient(accessToken);
-    const eventObject = constructEventObject(eventData, emailAddresses, recurrenceRule, body.redirectUrl);
+    const drive = getDriveClient(accessToken);
 
+    // Fetch the existing event from Google Calendar
+    const existingEvent = await calendar.events.get({
+      calendarId: 'primary',
+      eventId
+    });
+
+    // Collect existing attachments if any
+    let existingAttachments = existingEvent.data.attachments || [];
+
+    // Handle new file uploads
+    if (body.files && body.files.length > 0) {
+      for (const file of body.files) {
+        const uploadedFile:any = await uploadFileToDrive(file, drive);
+        existingAttachments.push({
+          fileUrl: uploadedFile.webViewLink,
+          title: file.originalname,
+          mimeType: file.mimetype,
+          iconLink: uploadedFile.iconLink,
+        });
+      }
+    }
+
+    // Handle new Google Drive file ids
+    if (body.driveFileIds && body.driveFileIds.length > 0) {
+      for (const fileId of body.driveFileIds) {
+        const fileResponse = await drive.files.get({
+          fileId: fileId,
+          fields: 'webViewLink,name,mimeType,iconLink'
+        });
+        existingAttachments.push({
+          fileUrl: fileResponse.data.webViewLink,
+          title: fileResponse.data.name,
+          mimeType: fileResponse.data.mimeType,
+          iconLink: fileResponse.data.iconLink,
+        });
+      }
+    }
+
+    // Prepare update object for Google Calendar
+    const eventUpdateObject: any = {
+      summary: body.summary || event.summary,
+      description: body.description || event.description,
+      start: { dateTime: new Date(body.startDate || event.startDate)},
+      end: { dateTime: new Date(body.endDate || event.endDate) },
+      attendees: body.emails ? body.emails.map((emailObj: { address: any }) => emailObj.address) : event.attendees,
+      recurrence: body.recurrence ? [getRecurrenceRule(body.recurrence)] : event.recurrence,
+      attachments: existingAttachments,
+    };
+    console.log("eventUpdateObject",eventUpdateObject)
+
+    // Ensure start and end dates are included
+    if (!eventUpdateObject.start || !eventUpdateObject.end) {
+      throw new Error('Start and End dates must be provided.');
+    }
+
+
+   let  data= {
+      description: eventUpdateObject.description,
+      summary: eventUpdateObject.summary,
+      startDate: eventUpdateObject.start.dateTime,
+      endDate: eventUpdateObject.end.dateTime
+    }
+  
+
+    const emailAddresses = eventUpdateObject.attendees.map((emailObj: { address: any }) => emailObj);
+    const eventData = constructEventObject(data,  emailAddresses,eventUpdateObject.recurrenceRule, body.redirectUrl, eventUpdateObject.attachments);
+
+    console.log("eventData",eventData)
+    // Update Google Calendar event
     await calendar.events.update({
       calendarId: 'primary',
       eventId,
-      requestBody: eventObject,
+      requestBody: eventData,
+      supportsAttachments: true
     });
 
-    await connectionObj.db('calendar').collection('events').updateOne({ _id: new ObjectId(Id) }, {
-      $set: {
-        eventId,
-        summary: body.summary,
-        description: body.description,
-        assigneeEmail: body.emails,
-        startDate: body.startDate,
-        endDate: body.endDate,
-        recurrence: body.recurrence,
-        emails: body.emails,
-        redirectUrl: body.redirectUrl,
-      },
-    });
+    // Prepare update object for database
+    const dbUpdateObject: any = {
+      ...event, // Copy existing event data
+      ...body, // Override with new data from the request
+      //fileLinks: existingAttachments.map(att => ({ fileUrl: att.fileUrl, title: att.title })),
+    };
+
+    console.log("dbUpdateObject",dbUpdateObject)
+
+    // Update database
+    await connectionObj.db('calendar').collection('events').updateOne(
+      { _id: new ObjectId(Id) },
+      { $set: dbUpdateObject }
+    );
 
     return 'Event updated successfully';
   } catch (error: any) {

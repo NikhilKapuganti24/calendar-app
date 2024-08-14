@@ -111,21 +111,55 @@ export default [
         ]
 
     },
-    {
-        path: '/event/:eventId/update',
-        method: 'post',
-        handler: [
-            checkUserSession,
-            async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-                try {
-                    const result = await updateEvent(req.params.eventId, req.body, req.user?.accessToken)
-                    res.status(200).json(result);
-                } catch (e) {
-                    console.log(e)
-                }
-            },
-        ]
+    // {
+    //     path: '/event/:eventId/update',
+    //     method: 'post',
+    //     handler: [
+    //         checkUserSession,
+    //         uploadMultiple,
+    //         async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    //             try {
+    //                 const result = await updateEvent(req.params.eventId, req.body, req.user?.accessToken)
+    //                 res.status(200).json(result);
+    //             } catch (e) {
+    //                 console.log(e)
+    //             }
+    //         },
+    //     ]
 
-    }
+    // }
+
+    {
+        path: '/event/:id',
+        method: 'patch',
+        handler: [
+          checkUserSession,
+          uploadMultiple,
+          async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+            try {
+              const { id } = req.params;
+              const updatedFields = req.body;
+              const files = req.files;
+              const driveFileIds = Array.isArray(req.body.driveFileId) ? req.body.driveFileId : [req.body.driveFileId].filter(Boolean);
+      
+              console.log("Received data:", updatedFields);
+              console.log("Received files:", files);
+              console.log("Received Drive file IDs:", driveFileIds);
+      
+              const body = {
+                ...updatedFields,
+                driveFileIds,
+                files, // Pass the array of files
+              };
+      
+              const result = await updateEvent(id, body, req.user?.accessToken);
+              res.status(200).json(result);
+            } catch (error) {
+              console.error(error);
+              res.status(500).json({ message: 'Error updating event' });
+            }
+          },
+        ],
+      },
 
 ]

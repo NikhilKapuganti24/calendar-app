@@ -318,6 +318,9 @@ export const constructEventObject = (
   redirectUrl: any,
   fileLinks?: { fileUrl: string, title: string }[] // Array of file links
 ) => {
+  console.log("emailAddresses",emailAddresses)
+  console.log("fileLinks",fileLinks)
+  console.log("redirectUrl",redirectUrl)
   const event: any = {
     summary: data.summary,
     description: `<a href="${redirectUrl}">${data.description}</a>`,
@@ -340,7 +343,7 @@ export const constructEventObject = (
     }));
   }
 
-  if (recurrenceRule && recurrenceRule !== 'None') {
+  if (recurrenceRule ) {
     event.recurrence = [recurrenceRule];
   }
 
